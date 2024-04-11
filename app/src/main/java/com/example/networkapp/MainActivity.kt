@@ -14,6 +14,11 @@ import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import com.squareup.picasso.Picasso
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileOutputStream
+import java.io.FileReader
+import java.io.IOException
 
 // TODO (1: Fix any bugs)
 // TODO (2: Add function saveComic(...) to save and load comic info automatically when app starts)
@@ -26,12 +31,17 @@ class MainActivity : AppCompatActivity() {
     lateinit var numberEditText: EditText
     lateinit var showButton: Button
     lateinit var comicImageView: ImageView
+    lateinit var file: File
+    lateinit var comicObject: JSONObject
+    private val internalFilename = "comic"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         requestQueue = Volley.newRequestQueue(this)
+
+        file = File(filesDir, internalFilename)
 
         titleTextView = findViewById<TextView>(R.id.comicTitleTextView)
         descriptionTextView = findViewById<TextView>(R.id.comicDescriptionTextView)
@@ -43,12 +53,16 @@ class MainActivity : AppCompatActivity() {
             downloadComic(numberEditText.text.toString())
         }
 
+        if (file.exists()) {
+            loadComic()
+        }
+
     }
 
     private fun downloadComic (comicId: String) {
         val url = "https://xkcd.com/$comicId/info.0.json"
         requestQueue.add (
-            JsonObjectRequest(url, {showComic(it)}, {
+            JsonObjectRequest(url, { showComic(it)}, {
             })
         )
     }
@@ -57,7 +71,42 @@ class MainActivity : AppCompatActivity() {
         titleTextView.text = comicObject.getString("title")
         descriptionTextView.text = comicObject.getString("alt")
         Picasso.get().load(comicObject.getString("img")).into(comicImageView)
+        saveComic(comicObject)
     }
 
+    private fun saveComic (comicObject: JSONObject) {
+        try {
+            val outputStream = FileOutputStream(file)
+            outputStream.write(comicObject.toString().toByteArray())
+            outputStream.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadComic() {
+        try {
+            try {
+                val br = BufferedReader(FileReader(file))
+                val comic = StringBuilder()
+                var line: String?
+                while (br.readLine().also { line = it } != null) {
+                    comic.append(line)
+                }
+                br.close()
+                showComic(JSONObject(comic.toString()))
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (file.exists())
+            loadComic()
+    }
 
 }
